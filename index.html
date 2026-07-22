@@ -78,6 +78,32 @@
   .empty .big{font-size:38px;margin-bottom:8px;}
 
   /* ---------- log ---------- */
+  /* ---------- log: 日付×パークのサブタブ ---------- */
+  .subtabs{
+    position:sticky;top:var(--headh,0px);z-index:9;
+    display:none;gap:7px;overflow-x:auto;overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    margin:-16px -14px 14px;padding:10px 14px 11px;
+    background:linear-gradient(to bottom,var(--bg) 76%,rgba(238,242,244,0));
+  }
+  .subtabs::-webkit-scrollbar{display:none;}
+  .subtabs.on{display:flex;}
+  .stab{
+    flex:none;max-width:64vw;border:1.5px solid var(--line);background:var(--card);
+    border-radius:12px;padding:7px 12px;cursor:pointer;font-family:inherit;text-align:left;
+    color:var(--muted);box-shadow:0 1px 4px rgba(20,32,43,.05);
+  }
+  .stab .sd{font-size:10px;font-weight:800;letter-spacing:.05em;font-variant-numeric:tabular-nums;opacity:.9;}
+  .stab .sp{
+    font-size:13.5px;font-weight:800;color:var(--ink);margin-top:1px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .stab .sn{font-size:10px;font-weight:700;opacity:.85;}
+  .stab.on{background:var(--grape);border-color:var(--grape);color:rgba(255,255,255,.85);box-shadow:0 3px 10px rgba(87,59,150,.3);}
+  .stab.on .sp{color:#fff;}
+  .stab.all{display:flex;align-items:center;}
+  .stab.all .sp{margin-top:0;}
+
   .group{margin-bottom:22px;}
   .ghead{display:flex;align-items:center;gap:8px;padding:0 4px 8px;border-bottom:1.5px dashed #CFD9E0;margin-bottom:12px;}
   .ghead .gmeta{flex:1;min-width:0;}
@@ -313,7 +339,10 @@
   </header>
 
   <main>
-    <section class="view on" id="view-log"><div id="list"></div></section>
+    <section class="view on" id="view-log">
+      <div class="subtabs" id="subtabs"></div>
+      <div id="list"></div>
+    </section>
     <section class="view" id="view-summary"><div id="summary"></div></section>
     <section class="view" id="view-settings"><div id="settings"></div></section>
   </main>
@@ -482,29 +511,67 @@
     document.getElementById("csvBtn").disabled=entries.length===0;
   }
 
-  function renderLog(){
-    if(entries.length===0){
-      listEl.innerHTML='<div class="empty"><div class="big">🎢</div>'+
-        'まだ記録がありません。<br>上で日付とテーマパーク名を入れてから、<br>下の「追加」を押してください。</div>';
-      renderStats(); return;
-    }
-    var groups={},order=[];
+  var activeKey="*", curOrder=[];
+  function gKey(e){ return (e.date||"")+"\u0000"+(e.park||""); }
+  function buildGroups(){
+    var map={},order=[];
     entries.forEach(function(e){
-      var k=(e.date||"")+"\u0000"+(e.park||"");
-      if(!groups[k]){ groups[k]={date:e.date||"",park:e.park||"",items:[]}; order.push(k); }
-      groups[k].items.push(e);
+      var k=gKey(e);
+      if(!map[k]){ map[k]={date:e.date||"",park:e.park||"",items:[]}; order.push(k); }
+      map[k].items.push(e);
     });
     order.sort(function(a,b){
-      var ga=groups[a],gb=groups[b];
+      var ga=map[a],gb=map[b];
       if(ga.date!==gb.date) return ga.date<gb.date?1:-1;
       var la=Math.max.apply(null,ga.items.map(function(x){return +new Date(x.start);}));
       var lb=Math.max.apply(null,gb.items.map(function(x){return +new Date(x.start);}));
       return lb-la;
     });
+    return { map:map, order:order };
+  }
+  function shortDate(ymd){
+    var a=(ymd||"").split("-"); if(a.length!==3) return "日付未設定";
+    var w=["日","月","火","水","木","金","土"][new Date(a[0],a[1]-1,a[2]).getDay()];
+    return parseInt(a[1],10)+"/"+parseInt(a[2],10)+"（"+w+"）";
+  }
+  function syncHeadH(){
+    var h=document.querySelector("header");
+    if(h) document.documentElement.style.setProperty("--headh",h.offsetHeight+"px");
+  }
 
+  function renderLog(){
+    var stEl=document.getElementById("subtabs");
+    if(entries.length===0){
+      stEl.className="subtabs"; stEl.innerHTML="";
+      listEl.innerHTML='<div class="empty"><div class="big">🎢</div>'+
+        'まだ記録がありません。<br>上で日付とテーマパーク名を入れてから、<br>下の「追加」を押してください。</div>';
+      renderStats(); return;
+    }
+
+    var G=buildGroups();
+    curOrder=G.order;
+    if(activeKey!=="*" && !G.map[activeKey]) activeKey=G.order[0];
+
+    // ---- サブタブ（グループが2つ以上のときだけ表示） ----
+    if(G.order.length>1){
+      var tabs='<button class="stab all'+(activeKey==="*"?" on":"")+'" data-idx="-1">'+
+        '<span class="sp">すべて<span class="sn"> '+entries.length+'件</span></span></button>';
+      G.order.forEach(function(k,i){
+        var g=G.map[k];
+        tabs+='<button class="stab'+(activeKey===k?" on":"")+'" data-idx="'+i+'">'+
+          '<span class="sd">'+esc(shortDate(g.date))+'</span>'+
+          '<span class="sp">'+esc(g.park||"パーク未設定")+'</span>'+
+          '<span class="sn">'+g.items.length+'件</span></button>';
+      });
+      stEl.innerHTML=tabs; stEl.className="subtabs on";
+    }else{
+      stEl.innerHTML=""; stEl.className="subtabs";
+    }
+
+    var show = (activeKey==="*") ? G.order : [activeKey];
     var html="";
-    order.forEach(function(k){
-      var g=groups[k];
+    show.forEach(function(k){
+      var g=G.map[k]; if(!g) return;
       var items=g.items.slice().sort(function(a,b){ return new Date(b.start)-new Date(a.start); });
       var sub=0; items.forEach(function(e){ if(e.end) sub+=diffMin(e.start,e.end); });
 
@@ -547,7 +614,20 @@
     });
     listEl.innerHTML=html;
     renderStats();
+    syncHeadH();
+    var on=document.querySelector(".stab.on");
+    if(on && on.scrollIntoView){
+      try{ on.scrollIntoView({block:"nearest",inline:"center"}); }catch(e){}
+    }
   }
+
+  document.getElementById("subtabs").addEventListener("click",function(ev){
+    var t=ev.target.closest(".stab"); if(!t) return;
+    var i=+t.getAttribute("data-idx");
+    activeKey = (i<0) ? "*" : (curOrder[i]||"*");
+    renderLog();
+    window.scrollTo(0,0);
+  });
 
   listEl.addEventListener("click",function(ev){
     var t=ev.target.closest("[data-act]"); if(!t) return;
@@ -592,6 +672,7 @@
       var dt=t.getAttribute("data-date")||"", op=t.getAttribute("data-park")||"", np=t.value;
       if(np===op) return;
       entries.forEach(function(x){ if((x.date||"")===dt&&(x.park||"")===op) x.park=np; });
+      if(activeKey===dt+"\u0000"+op) activeKey=dt+"\u0000"+np;
       if(session.date===dt&&session.park===op){
         session.park=np; document.getElementById("sesPark").value=np; saveSes();
       }
@@ -614,9 +695,14 @@
     session.date=dateEl.value||todayStr();
     session.park=parkEl.value;
     dateEl.value=session.date; saveSes();
-    entries.push({ id:uid(), name:"", date:session.date, park:session.park,
-                   start:nowISO(), end:null, expect:null, memo:"" });
+    var ne={ id:uid(), name:"", date:session.date, park:session.park,
+             start:nowISO(), end:null, expect:null, memo:"" };
+    entries.push(ne);
+    // 追加先のグループへ自動で切り替える
+    var nk=gKey(ne), moved = (activeKey!=="*" && activeKey!==nk);
+    if(activeKey!=="*") activeKey=nk;
     saveLog(); renderLog();
+    if(moved) toast((ne.park||"パーク未設定")+"（"+shortDate(ne.date)+"）に追加しました");
     setTimeout(function(){ var n=listEl.querySelector(".card .name"); if(n) n.focus(); },30);
   });
 
@@ -859,6 +945,7 @@
       tab==="log" ? "🎡 遊園地の行列を記録" : (tab==="summary" ? "📊 記録の集計" : "⚙️ 登録とバックアップ");
     if(tab==="summary") renderSummary();
     if(tab==="settings") renderSettings();
+    syncHeadH();
     window.scrollTo(0,0);
   });
 
@@ -876,7 +963,19 @@
   dateEl.value=session.date||todayStr();
   parkEl.value=session.park||"";
   session.date=dateEl.value;
+
+  // 起動時は、いま記録中のグループ（なければ最新）を開く
+  (function(){
+    var G=buildGroups();
+    if(!G.order.length) return;
+    var sk=(session.date||"")+"\u0000"+(session.park||"");
+    activeKey = G.map[sk] ? sk : G.order[0];
+  })();
+
   renderLog();
+  syncHeadH();
+  window.addEventListener("resize",syncHeadH);
+  window.addEventListener("orientationchange",function(){ setTimeout(syncHeadH,300); });
 })();
 </script>
 </body>
