@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#6C4AB6">
+<title>待ち時間ログ</title>
+<style>
+  :root{
+    --bg:#EEF2F4;
+    --ink:#14202B;
+    --muted:#61707B;
+    --card:#FFFFFF;
+    --grape:#6C4AB6;
+    --grape-d:#573B96;
+    --amber:#F5A524;
+    --teal:#12B886;
+    --line:#E4EAEF;
+    --danger:#E8543E;
+    --shadow:0 4px 16px rgba(20,32,43,.08);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    line-height:1.5;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+
+  /* ---- Header ---- */
+  header{
+    position:sticky;top:0;z-index:10;
+    background:linear-gradient(135deg,var(--grape),var(--grape-d));
+    color:#fff;
+    padding:calc(16px + env(safe-area-inset-top)) 18px 16px;
+    box-shadow:0 2px 12px rgba(87,59,150,.35);
+  }
+  .h-title{display:flex;align-items:baseline;gap:9px;}
+  .h-title h1{font-size:21px;font-weight:800;letter-spacing:.04em;margin:0;}
+  .h-title .sub{font-size:12px;opacity:.82;font-weight:500;letter-spacing:.02em;}
+  .stats{display:flex;gap:8px;margin-top:13px;}
+  .chip{
+    flex:1;background:rgba(255,255,255,.15);
+    border-radius:12px;padding:9px 10px;backdrop-filter:blur(2px);
+  }
+  .chip .k{font-size:10.5px;opacity:.85;letter-spacing:.06em;font-weight:600;}
+  .chip .v{font-size:19px;font-weight:800;margin-top:1px;font-variant-numeric:tabular-nums;}
+  .chip .v small{font-size:12px;font-weight:700;opacity:.9;margin-left:1px;}
+
+  /* ---- List ---- */
+  main{padding:16px 14px 8px;max-width:640px;margin:0 auto;}
+  .empty{
+    text-align:center;color:var(--muted);
+    padding:52px 24px;font-size:14px;line-height:1.9;
+  }
+  .empty .big{font-size:40px;margin-bottom:8px;}
+
+  .card{
+    position:relative;background:var(--card);
+    border-radius:16px;box-shadow:var(--shadow);
+    padding:15px 16px 16px;margin-bottom:13px;
+    border:1px solid var(--line);
+    animation:pop .28s cubic-bezier(.2,.9,.3,1.2);
+  }
+  @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98);}to{opacity:1;transform:none;}}
+  /* ticket notches */
+  .card::before,.card::after{
+    content:"";position:absolute;top:50%;width:16px;height:16px;
+    background:var(--bg);border-radius:50%;transform:translateY(-50%);
+  }
+  .card::before{left:-9px;}
+  .card::after{right:-9px;}
+
+  .card.active{border-color:var(--amber);box-shadow:0 4px 18px rgba(245,165,36,.22);}
+
+  .row1{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .name{
+    flex:1;min-width:0;border:none;background:transparent;
+    font-size:17px;font-weight:700;color:var(--ink);
+    padding:4px 2px;border-bottom:2px solid transparent;
+    font-family:inherit;
+  }
+  .name::placeholder{color:#B4C0C8;font-weight:600;}
+  .name:focus{outline:none;border-bottom-color:var(--grape);}
+  .badge{
+    flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;
+    padding:4px 9px;border-radius:999px;white-space:nowrap;
+  }
+  .badge.live{background:#FEF3DC;color:#B67400;}
+  .badge.done{background:#DEF7EF;color:#0B8C6C;}
+  .del{
+    flex:none;border:none;background:transparent;color:#B4C0C8;
+    width:34px;height:34px;border-radius:9px;font-size:19px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .del:active{background:#F4E6E3;color:var(--danger);}
+
+  .times{display:flex;align-items:flex-end;gap:10px;}
+  .tblock{flex:1;}
+  .tblock .lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em;margin-bottom:3px;}
+  input[type=time]{
+    width:100%;border:1.5px solid var(--line);background:#F9FBFC;
+    border-radius:10px;padding:9px 8px;font-size:17px;font-weight:700;
+    color:var(--ink);font-family:inherit;font-variant-numeric:tabular-nums;
+    text-align:center;
+  }
+  input[type=time]:focus{outline:none;border-color:var(--grape);background:#fff;}
+  .arrow{color:#C4CED4;font-size:16px;font-weight:800;padding-bottom:9px;}
+
+  .end-btn{
+    width:100%;border:none;border-radius:10px;padding:10px 8px;
+    background:var(--teal);color:#fff;font-size:15px;font-weight:800;
+    letter-spacing:.05em;cursor:pointer;font-family:inherit;
+    box-shadow:0 2px 8px rgba(18,184,134,.3);
+  }
+  .end-btn:active{transform:scale(.97);}
+  .end-wrap{position:relative;}
+  .reset-end{
+    position:absolute;top:-6px;right:-4px;border:none;cursor:pointer;
+    width:22px;height:22px;border-radius:50%;background:#EEF2F4;color:var(--muted);
+    font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;
+    box-shadow:0 1px 3px rgba(0,0,0,.12);
+  }
+
+  .dur{
+    margin-top:13px;text-align:center;font-size:14px;
+    color:var(--muted);font-weight:700;letter-spacing:.03em;
+  }
+  .dur b{font-size:22px;color:var(--grape);font-weight:800;font-variant-numeric:tabular-nums;margin:0 2px;}
+  .dur.live b{color:var(--amber);}
+
+  /* ---- Add bar ---- */
+  .addbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:20;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,var(--bg) 62%,rgba(238,242,244,0));
+    display:flex;justify-content:center;pointer-events:none;
+  }
+  .add{
+    pointer-events:auto;width:100%;max-width:610px;
+    border:none;border-radius:16px;padding:16px;cursor:pointer;
+    background:linear-gradient(135deg,var(--grape),var(--grape-d));color:#fff;
+    font-size:17px;font-weight:800;letter-spacing:.06em;font-family:inherit;
+    box-shadow:0 6px 20px rgba(87,59,150,.4);
+    display:flex;align-items:center;justify-content:center;gap:8px;
+  }
+  .add:active{transform:scale(.98);}
+  .add .plus{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.22);
+    font-size:19px;line-height:1;
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="h-title">
+      <h1>待ち時間ログ</h1>
+      <span class="sub">🎡 遊園地の行列を記録</span>
+    </div>
+    <div class="stats">
+      <div class="chip"><div class="k">記録件数</div><div class="v" id="s-count">0<small>件</small></div></div>
+      <div class="chip"><div class="k">完了</div><div class="v" id="s-done">0<small>件</small></div></div>
+      <div class="chip"><div class="k">合計待ち時間</div><div class="v" id="s-total">0<small>分</small></div></div>
+    </div>
+  </header>
+
+  <main>
+    <div id="list"></div>
+  </main>
+
+  <div class="addbar">
+    <button class="add" id="addBtn"><span class="plus">＋</span>アトラクションを追加</button>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY = "machijikan_log_v1";
+  var entries = [];
+
+  /* ---------- storage (guarded: 端末のブラウザでは保存、プレビュー等では非保存で継続) ---------- */
+  function load(){
+    try{ var r = localStorage.getItem(KEY); if(r) entries = JSON.parse(r) || []; }
+    catch(e){ entries = []; }
+  }
+  function save(){
+    try{ localStorage.setItem(KEY, JSON.stringify(entries)); }catch(e){}
+  }
+
+  /* ---------- helpers ---------- */
+  function nowISO(){ return new Date().toISOString(); }
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+  function isoToHM(iso){
+    var d = new Date(iso), p = function(n){ return (n<10?"0":"")+n; };
+    return p(d.getHours()) + ":" + p(d.getMinutes());
+  }
+  // HH:MM を、基準ISOの「日付」に合わせて反映（分まで、秒は0）
+  function hmToISO(baseISO, hm){
+    var d = baseISO ? new Date(baseISO) : new Date();
+    var parts = hm.split(":");
+    d.setHours(parseInt(parts[0],10), parseInt(parts[1],10), 0, 0);
+    return d.toISOString();
+  }
+  function diffMin(startISO, endISO){
+    var ms = new Date(endISO) - new Date(startISO);
+    if(ms < 0) ms += 24*3600*1000; // 日付をまたいだ場合の補正
+    return Math.round(ms/60000);
+  }
+  function fmtMin(m){
+    if(m < 60) return m + "分";
+    var h = Math.floor(m/60), mm = m%60;
+    return mm ? (h + "時間" + mm + "分") : (h + "時間");
+  }
+
+  /* ---------- summary ---------- */
+  function renderStats(){
+    var total = 0, done = 0;
+    entries.forEach(function(e){
+      if(e.end){ done++; total += diffMin(e.start, e.end); }
+    });
+    document.getElementById("s-count").innerHTML = entries.length + '<small>件</small>';
+    document.getElementById("s-done").innerHTML  = done + '<small>件</small>';
+    if(total < 60){
+      document.getElementById("s-total").innerHTML = total + '<small>分</small>';
+    }else{
+      var h = Math.floor(total/60), mm = total%60;
+      document.getElementById("s-total").innerHTML = h + '<small>時間</small>' + mm + '<small>分</small>';
+    }
+  }
+
+  /* ---------- render list ---------- */
+  function render(){
+    var list = document.getElementById("list");
+    if(entries.length === 0){
+      list.innerHTML = '<div class="empty"><div class="big">🎢</div>' +
+        'まだ記録がありません。<br>下の「追加」を押すと、<br>今から並ぶアトラクションを登録できます。</div>';
+      renderStats();
+      return;
+    }
+    // 新しい順（追加したものが上）
+    var order = entries.slice().reverse();
+    var html = "";
+    order.forEach(function(e){
+      var active = !e.end;
+      var badge = active
+        ? '<span class="badge live">計測中</span>'
+        : '<span class="badge done">完了</span>';
+
+      var startField =
+        '<div class="tblock"><div class="lbl">並び始め</div>' +
+        '<input type="time" value="'+isoToHM(e.start)+'" ' +
+        'onchange="APP.editTime(\''+e.id+'\',\'start\',this.value)"></div>';
+
+      var endField;
+      if(active){
+        endField =
+          '<div class="tblock"><div class="lbl">並び終え</div>' +
+          '<button class="end-btn" onclick="APP.finish(\''+e.id+'\')">終了</button></div>';
+      }else{
+        endField =
+          '<div class="tblock"><div class="lbl">並び終え</div><div class="end-wrap">' +
+          '<input type="time" value="'+isoToHM(e.end)+'" ' +
+          'onchange="APP.editTime(\''+e.id+'\',\'end\',this.value)">' +
+          '<button class="reset-end" title="計測中に戻す" onclick="APP.reopen(\''+e.id+'\')">↺</button>' +
+          '</div></div>';
+      }
+
+      var dur;
+      if(active){
+        var el = diffMin(e.start, nowISO());
+        dur = '<div class="dur live">計測中 <b>'+el+'</b>分 経過</div>';
+      }else{
+        dur = '<div class="dur">待ち時間 <b>'+diffMin(e.start,e.end)+'</b>分</div>';
+      }
+
+      html +=
+        '<div class="card'+(active?' active':'')+'">' +
+          '<div class="row1">' +
+            '<input class="name" value="'+escapeAttr(e.name)+'" placeholder="アトラクション名" ' +
+              'onchange="APP.editName(\''+e.id+'\',this.value)">' +
+            badge +
+            '<button class="del" title="削除" onclick="APP.remove(\''+e.id+'\')">🗑</button>' +
+          '</div>' +
+          '<div class="times">' + startField +
+            '<div class="arrow">→</div>' + endField +
+          '</div>' + dur +
+        '</div>';
+    });
+    list.innerHTML = html;
+    renderStats();
+  }
+  function escapeAttr(s){
+    return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  /* ---------- actions ---------- */
+  var APP = {
+    add:function(){
+      entries.push({ id:uid(), name:"", start:nowISO(), end:null });
+      save(); render();
+      // 追加したカードの名前欄にフォーカス（先頭に表示される）
+      setTimeout(function(){
+        var n = document.querySelector("#list .card .name");
+        if(n){ n.focus(); }
+      }, 30);
+    },
+    finish:function(id){
+      var e = find(id); if(!e) return;
+      e.end = nowISO(); save(); render();
+    },
+    reopen:function(id){
+      var e = find(id); if(!e) return;
+      e.end = null; save(); render();
+    },
+    editName:function(id,val){
+      var e = find(id); if(!e) return;
+      e.name = val; save(); renderStats();
+    },
+    editTime:function(id,field,hm){
+      var e = find(id); if(!e || !hm) return;
+      if(field === "start"){ e.start = hmToISO(e.start, hm); }
+      else { e.end = hmToISO(e.end || e.start, hm); }
+      save(); render();
+    },
+    remove:function(id){
+      var e = find(id);
+      var label = (e && e.name) ? "「"+e.name+"」" : "この記録";
+      if(confirm(label+"を削除しますか？")){
+        entries = entries.filter(function(x){ return x.id !== id; });
+        save(); render();
+      }
+    }
+  };
+  function find(id){
+    for(var i=0;i<entries.length;i++){ if(entries[i].id===id) return entries[i]; }
+    return null;
+  }
+  window.APP = APP;
+
+  document.getElementById("addBtn").addEventListener("click", APP.add);
+
+  // 計測中の経過分を自動更新（30秒ごと）
+  setInterval(function(){
+    var hasActive = entries.some(function(e){ return !e.end; });
+    if(hasActive) render();
+  }, 30000);
+
+  load();
+  render();
+})();
+</script>
+</body>
+</html>
