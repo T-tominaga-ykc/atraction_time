@@ -4,359 +4,879 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="待ち時間ログ">
 <meta name="theme-color" content="#6C4AB6">
 <title>待ち時間ログ</title>
 <style>
   :root{
-    --bg:#EEF2F4;
-    --ink:#14202B;
-    --muted:#61707B;
-    --card:#FFFFFF;
-    --grape:#6C4AB6;
-    --grape-d:#573B96;
-    --amber:#F5A524;
-    --teal:#12B886;
-    --line:#E4EAEF;
-    --danger:#E8543E;
-    --shadow:0 4px 16px rgba(20,32,43,.08);
+    --bg:#EEF2F4; --ink:#14202B; --muted:#61707B; --card:#FFFFFF;
+    --grape:#6C4AB6; --grape-d:#573B96; --amber:#F5A524; --teal:#12B886;
+    --line:#E4EAEF; --danger:#E8543E; --shadow:0 4px 16px rgba(20,32,43,.08);
+    --tabh:58px;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
-    background:var(--bg);
-    color:var(--ink);
+    background:var(--bg); color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic",Meiryo,sans-serif;
-    -webkit-font-smoothing:antialiased;
-    line-height:1.5;
-    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    padding-bottom:calc(var(--tabh) + 24px + env(safe-area-inset-bottom));
   }
+  body.tab-log{padding-bottom:calc(var(--tabh) + 88px + env(safe-area-inset-bottom));}
 
-  /* ---- Header ---- */
+  /* ---------- header ---------- */
   header{
     position:sticky;top:0;z-index:10;
-    background:linear-gradient(135deg,var(--grape),var(--grape-d));
-    color:#fff;
-    padding:calc(16px + env(safe-area-inset-top)) 18px 16px;
+    background:linear-gradient(135deg,var(--grape),var(--grape-d));color:#fff;
+    padding:calc(14px + env(safe-area-inset-top)) 16px 14px;
     box-shadow:0 2px 12px rgba(87,59,150,.35);
   }
   .h-title{display:flex;align-items:baseline;gap:9px;}
-  .h-title h1{font-size:21px;font-weight:800;letter-spacing:.04em;margin:0;}
-  .h-title .sub{font-size:12px;opacity:.82;font-weight:500;letter-spacing:.02em;}
-  .stats{display:flex;gap:8px;margin-top:13px;}
-  .chip{
-    flex:1;background:rgba(255,255,255,.15);
-    border-radius:12px;padding:9px 10px;backdrop-filter:blur(2px);
-  }
-  .chip .k{font-size:10.5px;opacity:.85;letter-spacing:.06em;font-weight:600;}
-  .chip .v{font-size:19px;font-weight:800;margin-top:1px;font-variant-numeric:tabular-nums;}
-  .chip .v small{font-size:12px;font-weight:700;opacity:.9;margin-left:1px;}
+  .h-title h1{font-size:20px;font-weight:800;letter-spacing:.04em;margin:0;}
+  .h-title .sub{font-size:11.5px;opacity:.82;font-weight:500;}
 
-  /* ---- List ---- */
-  main{padding:16px 14px 8px;max-width:640px;margin:0 auto;}
-  .empty{
-    text-align:center;color:var(--muted);
-    padding:52px 24px;font-size:14px;line-height:1.9;
+  .logonly{display:none;}
+  body.tab-log .logonly{display:flex;}
+
+  .session{gap:8px;margin-top:12px;}
+  .sfield{background:rgba(255,255,255,.15);border-radius:11px;padding:7px 10px;min-width:0;}
+  .sfield .k{font-size:10px;opacity:.85;letter-spacing:.06em;font-weight:700;margin-bottom:1px;}
+  .sfield .inline{display:flex;align-items:center;gap:6px;}
+  .sfield input{
+    width:100%;min-width:0;border:none;background:transparent;color:#fff;
+    font-size:15px;font-weight:700;font-family:inherit;padding:1px 0;
   }
-  .empty .big{font-size:40px;margin-bottom:8px;}
+  .sfield input::placeholder{color:rgba(255,255,255,.6);font-weight:600;}
+  .sfield input:focus{outline:none;}
+  .pickbtn{
+    flex:none;border:none;background:rgba(255,255,255,.22);color:#fff;
+    width:26px;height:26px;border-radius:8px;font-size:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-family:inherit;
+  }
+  .pickbtn:active{background:rgba(255,255,255,.4);}
+
+  .stats{gap:8px;margin-top:9px;align-items:stretch;}
+  .chip{flex:1;background:rgba(255,255,255,.15);border-radius:11px;padding:7px 10px;min-width:0;}
+  .chip .k{font-size:10px;opacity:.85;letter-spacing:.06em;font-weight:700;}
+  .chip .v{font-size:17px;font-weight:800;margin-top:1px;font-variant-numeric:tabular-nums;}
+  .chip .v small{font-size:11px;font-weight:700;opacity:.9;margin-left:1px;}
+  .csv{
+    flex:none;border:none;cursor:pointer;font-family:inherit;
+    background:rgba(255,255,255,.92);color:var(--grape-d);
+    border-radius:11px;padding:8px 12px;font-size:12px;font-weight:800;
+    letter-spacing:.04em;line-height:1.25;
+  }
+  .csv:active{transform:scale(.96);}
+  .csv[disabled]{opacity:.4;}
+
+  /* ---------- views ---------- */
+  main{padding:16px 14px 8px;max-width:640px;margin:0 auto;}
+  .view{display:none;}
+  .view.on{display:block;}
+  .empty{text-align:center;color:var(--muted);padding:44px 20px;font-size:14px;line-height:1.9;}
+  .empty .big{font-size:38px;margin-bottom:8px;}
+
+  /* ---------- log ---------- */
+  .group{margin-bottom:22px;}
+  .ghead{display:flex;align-items:center;gap:8px;padding:0 4px 8px;border-bottom:1.5px dashed #CFD9E0;margin-bottom:12px;}
+  .ghead .gmeta{flex:1;min-width:0;}
+  .ghead .gdate{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.06em;font-variant-numeric:tabular-nums;}
+  .ghead .gpark{display:block;width:100%;border:none;background:transparent;padding:1px 0;font-size:16px;font-weight:800;color:var(--ink);font-family:inherit;}
+  .ghead .gpark::placeholder{color:#B4C0C8;}
+  .ghead .gpark:focus{outline:none;}
+  .ghead .gsum{flex:none;font-size:11.5px;font-weight:800;color:var(--grape);background:#EDE7F8;border-radius:999px;padding:5px 10px;white-space:nowrap;font-variant-numeric:tabular-nums;}
 
   .card{
-    position:relative;background:var(--card);
-    border-radius:16px;box-shadow:var(--shadow);
-    padding:15px 16px 16px;margin-bottom:13px;
-    border:1px solid var(--line);
+    position:relative;background:var(--card);border-radius:16px;box-shadow:var(--shadow);
+    padding:15px 16px 16px;margin-bottom:13px;border:1px solid var(--line);
     animation:pop .28s cubic-bezier(.2,.9,.3,1.2);
   }
   @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98);}to{opacity:1;transform:none;}}
-  /* ticket notches */
-  .card::before,.card::after{
-    content:"";position:absolute;top:50%;width:16px;height:16px;
-    background:var(--bg);border-radius:50%;transform:translateY(-50%);
-  }
+  .card::before,.card::after{content:"";position:absolute;top:50%;width:16px;height:16px;background:var(--bg);border-radius:50%;transform:translateY(-50%);}
   .card::before{left:-9px;}
   .card::after{right:-9px;}
-
   .card.active{border-color:var(--amber);box-shadow:0 4px 18px rgba(245,165,36,.22);}
 
-  .row1{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+  .row1{display:flex;align-items:center;gap:6px;margin-bottom:12px;}
   .name{
-    flex:1;min-width:0;border:none;background:transparent;
-    font-size:17px;font-weight:700;color:var(--ink);
-    padding:4px 2px;border-bottom:2px solid transparent;
-    font-family:inherit;
+    flex:1;min-width:0;border:none;background:transparent;font-size:17px;font-weight:700;
+    color:var(--ink);padding:4px 2px;border-bottom:2px solid transparent;font-family:inherit;
   }
   .name::placeholder{color:#B4C0C8;font-weight:600;}
   .name:focus{outline:none;border-bottom-color:var(--grape);}
-  .badge{
-    flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;
-    padding:4px 9px;border-radius:999px;white-space:nowrap;
-  }
-  .badge.live{background:#FEF3DC;color:#B67400;}
-  .badge.done{background:#DEF7EF;color:#0B8C6C;}
-  .del{
-    flex:none;border:none;background:transparent;color:#B4C0C8;
-    width:34px;height:34px;border-radius:9px;font-size:19px;cursor:pointer;
+  .namepick{
+    flex:none;border:1.5px solid var(--line);background:#F9FBFC;color:var(--grape);
+    width:32px;height:32px;border-radius:9px;font-size:13px;cursor:pointer;font-family:inherit;
     display:flex;align-items:center;justify-content:center;
   }
+  .namepick:active{background:#EDE7F8;}
+  .badge{flex:none;font-size:11px;font-weight:800;letter-spacing:.05em;padding:4px 9px;border-radius:999px;white-space:nowrap;}
+  .badge.live{background:#FEF3DC;color:#B67400;}
+  .badge.done{background:#DEF7EF;color:#0B8C6C;}
+  .del{flex:none;border:none;background:transparent;color:#B4C0C8;width:32px;height:32px;border-radius:9px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .del:active{background:#F4E6E3;color:var(--danger);}
 
   .times{display:flex;align-items:flex-end;gap:10px;}
   .tblock{flex:1;}
   .tblock .lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.04em;margin-bottom:3px;}
   input[type=time]{
-    width:100%;border:1.5px solid var(--line);background:#F9FBFC;
-    border-radius:10px;padding:9px 8px;font-size:17px;font-weight:700;
-    color:var(--ink);font-family:inherit;font-variant-numeric:tabular-nums;
-    text-align:center;
+    width:100%;border:1.5px solid var(--line);background:#F9FBFC;border-radius:10px;
+    padding:9px 8px;font-size:17px;font-weight:700;color:var(--ink);font-family:inherit;
+    font-variant-numeric:tabular-nums;text-align:center;
   }
   input[type=time]:focus{outline:none;border-color:var(--grape);background:#fff;}
   .arrow{color:#C4CED4;font-size:16px;font-weight:800;padding-bottom:9px;}
-
   .end-btn{
-    width:100%;border:none;border-radius:10px;padding:10px 8px;
-    background:var(--teal);color:#fff;font-size:15px;font-weight:800;
-    letter-spacing:.05em;cursor:pointer;font-family:inherit;
+    width:100%;border:none;border-radius:10px;padding:10px 8px;background:var(--teal);color:#fff;
+    font-size:15px;font-weight:800;letter-spacing:.05em;cursor:pointer;font-family:inherit;
     box-shadow:0 2px 8px rgba(18,184,134,.3);
   }
   .end-btn:active{transform:scale(.97);}
   .end-wrap{position:relative;}
   .reset-end{
-    position:absolute;top:-6px;right:-4px;border:none;cursor:pointer;
-    width:22px;height:22px;border-radius:50%;background:#EEF2F4;color:var(--muted);
-    font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;
-    box-shadow:0 1px 3px rgba(0,0,0,.12);
+    position:absolute;top:-6px;right:-4px;border:none;cursor:pointer;width:22px;height:22px;
+    border-radius:50%;background:#EEF2F4;color:var(--muted);font-size:13px;line-height:1;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 1px 3px rgba(0,0,0,.12);
   }
 
-  .dur{
-    margin-top:13px;text-align:center;font-size:14px;
-    color:var(--muted);font-weight:700;letter-spacing:.03em;
+  .expect{display:flex;align-items:center;gap:8px;margin-top:11px;padding-top:11px;border-top:1px dashed var(--line);}
+  .expect .lbl{flex:1;font-size:12px;color:var(--muted);font-weight:700;letter-spacing:.03em;line-height:1.35;}
+  .expect .lbl small{display:block;font-size:10px;opacity:.8;font-weight:600;letter-spacing:0;}
+  .expect .inwrap{flex:none;display:flex;align-items:center;gap:5px;}
+  .expect input{
+    width:74px;border:1.5px solid var(--line);background:#F9FBFC;border-radius:10px;
+    padding:8px 6px;font-size:16px;font-weight:800;color:var(--ink);font-family:inherit;
+    font-variant-numeric:tabular-nums;text-align:center;-moz-appearance:textfield;
   }
+  .expect input::-webkit-outer-spin-button,.expect input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .expect input:focus{outline:none;border-color:var(--grape);background:#fff;}
+  .expect .unit{font-size:12.5px;color:var(--muted);font-weight:700;}
+
+  .memo{margin-top:10px;}
+  .memo input{
+    width:100%;border:1.5px solid var(--line);background:#F9FBFC;border-radius:10px;
+    padding:9px 11px;font-size:13.5px;font-weight:600;color:var(--ink);font-family:inherit;
+  }
+  .memo input::placeholder{color:#B4C0C8;font-weight:500;}
+  .memo input:focus{outline:none;border-color:var(--grape);background:#fff;}
+
+  .dur{margin-top:13px;text-align:center;font-size:14px;color:var(--muted);font-weight:700;letter-spacing:.03em;}
   .dur b{font-size:22px;color:var(--grape);font-weight:800;font-variant-numeric:tabular-nums;margin:0 2px;}
   .dur.live b{color:var(--amber);}
+  .diff{display:inline-block;margin-left:7px;font-size:12px;font-weight:800;padding:3px 8px;border-radius:999px;font-variant-numeric:tabular-nums;vertical-align:middle;}
+  .diff.under{background:#DEF7EF;color:#0B8C6C;}
+  .diff.over{background:#FBE4DF;color:#C13F27;}
+  .diff.same{background:#EDF1F4;color:var(--muted);}
 
-  /* ---- Add bar ---- */
-  .addbar{
-    position:fixed;left:0;right:0;bottom:0;z-index:20;
-    padding:12px 16px calc(12px + env(safe-area-inset-bottom));
-    background:linear-gradient(to top,var(--bg) 62%,rgba(238,242,244,0));
-    display:flex;justify-content:center;pointer-events:none;
+  /* ---------- summary ---------- */
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px;margin-bottom:14px;}
+  .sec h2{margin:0 0 12px;font-size:13px;font-weight:800;letter-spacing:.08em;color:var(--grape);}
+  .kpis{display:flex;gap:9px;}
+  .kpi{flex:1;background:#F7F9FB;border-radius:12px;padding:10px 8px;text-align:center;}
+  .kpi .k{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.04em;}
+  .kpi .v{font-size:20px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;}
+  .kpi .v small{font-size:11px;font-weight:700;color:var(--muted);margin-left:1px;}
+  .rank{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid #F0F4F6;}
+  .rank:last-child{border-bottom:none;}
+  .rank .no{flex:none;width:20px;font-size:12px;font-weight:800;color:#B4C0C8;font-variant-numeric:tabular-nums;}
+  .rank .rname{flex:1;min-width:0;font-size:13.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rank .rname em{display:block;font-style:normal;font-size:10.5px;color:var(--muted);font-weight:600;}
+  .rank .rmin{flex:none;font-size:15px;font-weight:800;color:var(--grape);font-variant-numeric:tabular-nums;}
+  .bar{height:5px;background:#EDF1F4;border-radius:3px;margin-top:5px;overflow:hidden;}
+  .bar i{display:block;height:100%;background:var(--grape);border-radius:3px;}
+  .kv{display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid #F0F4F6;font-size:13.5px;}
+  .kv:last-child{border-bottom:none;}
+  .kv .kk{color:var(--muted);font-weight:700;}
+  .kv .vv{font-weight:800;font-variant-numeric:tabular-nums;}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.75;margin-top:10px;}
+
+  /* ---------- settings ---------- */
+  .pcard{background:#F7F9FB;border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:11px;}
+  .prow{display:flex;align-items:center;gap:6px;margin-bottom:9px;}
+  .prow input{
+    flex:1;min-width:0;border:none;border-bottom:2px solid var(--line);background:transparent;
+    font-size:15.5px;font-weight:800;color:var(--ink);font-family:inherit;padding:3px 1px;
   }
+  .prow input:focus{outline:none;border-bottom-color:var(--grape);}
+  .plbl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:4px;letter-spacing:.03em;}
+  .pcard textarea{
+    width:100%;border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;
+    font-size:13.5px;font-weight:600;color:var(--ink);font-family:inherit;line-height:1.8;
+    resize:none;min-height:76px;
+  }
+  .pcard textarea:focus{outline:none;border-color:var(--grape);}
+  .pcount{font-size:11px;color:var(--muted);font-weight:700;margin-top:6px;text-align:right;}
+  .btn{
+    width:100%;border:none;border-radius:12px;padding:13px;cursor:pointer;font-family:inherit;
+    font-size:14.5px;font-weight:800;letter-spacing:.04em;margin-top:8px;
+  }
+  .btn.primary{background:var(--grape);color:#fff;}
+  .btn.ghost{background:#F0F3F6;color:var(--ink);}
+  .btn.danger{background:#FBE4DF;color:#C13F27;}
+  .btn:active{transform:scale(.985);}
+
+  /* ---------- add bar / tab bar ---------- */
+  .addbar{
+    position:fixed;left:0;right:0;bottom:calc(var(--tabh) + env(safe-area-inset-bottom));
+    z-index:20;padding:12px 16px;display:none;justify-content:center;pointer-events:none;
+    background:linear-gradient(to top,var(--bg) 62%,rgba(238,242,244,0));
+  }
+  body.tab-log .addbar{display:flex;}
   .add{
-    pointer-events:auto;width:100%;max-width:610px;
-    border:none;border-radius:16px;padding:16px;cursor:pointer;
-    background:linear-gradient(135deg,var(--grape),var(--grape-d));color:#fff;
+    pointer-events:auto;width:100%;max-width:610px;border:none;border-radius:16px;padding:16px;
+    cursor:pointer;background:linear-gradient(135deg,var(--grape),var(--grape-d));color:#fff;
     font-size:17px;font-weight:800;letter-spacing:.06em;font-family:inherit;
-    box-shadow:0 6px 20px rgba(87,59,150,.4);
-    display:flex;align-items:center;justify-content:center;gap:8px;
+    box-shadow:0 6px 20px rgba(87,59,150,.4);display:flex;align-items:center;justify-content:center;gap:8px;
   }
   .add:active{transform:scale(.98);}
-  .add .plus{
-    display:inline-flex;align-items:center;justify-content:center;
-    width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.22);
-    font-size:19px;line-height:1;
-  }
+  .add .plus{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.22);font-size:19px;line-height:1;}
 
-  @media (prefers-reduced-motion:reduce){
-    *{animation:none!important;transition:none!important;}
+  .tabbar{
+    position:fixed;left:0;right:0;bottom:0;z-index:25;display:flex;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(10px);
+    border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
   }
+  .tabbar button{
+    flex:1;border:none;background:transparent;cursor:pointer;font-family:inherit;
+    height:var(--tabh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+    font-size:10.5px;font-weight:800;letter-spacing:.04em;color:#9AA8B2;
+  }
+  .tabbar button .ic{font-size:18px;line-height:1;}
+  .tabbar button.on{color:var(--grape);}
+
+  /* ---------- sheet ---------- */
+  .backdrop{
+    position:fixed;inset:0;background:rgba(20,32,43,.42);z-index:40;
+    opacity:0;pointer-events:none;transition:opacity .2s;
+  }
+  .backdrop.show{opacity:1;pointer-events:auto;}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:41;background:var(--bg);
+    border-radius:20px 20px 0 0;padding:8px 14px calc(14px + env(safe-area-inset-bottom));
+    transform:translateY(102%);transition:transform .26s cubic-bezier(.2,.8,.3,1);
+    max-height:76vh;display:flex;flex-direction:column;
+  }
+  .sheet.show{transform:none;}
+  .sheet .grip{width:38px;height:4px;background:#CFD9E0;border-radius:2px;margin:4px auto 10px;}
+  .sheet .stitle{font-size:14px;font-weight:800;text-align:center;margin-bottom:10px;}
+  .sheet .sbody{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .sgroup{font-size:10.5px;font-weight:800;color:var(--muted);letter-spacing:.08em;margin:12px 4px 5px;}
+  .sitem{
+    width:100%;text-align:left;border:1px solid var(--line);background:var(--card);
+    border-radius:11px;padding:13px 14px;font-size:15px;font-weight:700;color:var(--ink);
+    font-family:inherit;cursor:pointer;margin-bottom:7px;
+  }
+  .sitem:active{background:#EDE7F8;border-color:var(--grape);}
+  .snone{font-size:12.5px;color:var(--muted);text-align:center;padding:18px 10px;line-height:1.8;}
+  .scancel{width:100%;border:none;border-radius:12px;padding:13px;margin-top:8px;background:#E2E8ED;color:var(--ink);font-size:14.5px;font-weight:800;font-family:inherit;cursor:pointer;}
+
+  /* ---------- toast ---------- */
+  .toast{
+    position:fixed;left:50%;bottom:calc(var(--tabh) + 84px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);z-index:50;background:rgba(20,32,43,.93);color:#fff;
+    padding:11px 18px;border-radius:12px;font-size:13.5px;font-weight:700;
+    box-shadow:0 4px 16px rgba(0,0,0,.28);max-width:88vw;text-align:center;
+    opacity:0;pointer-events:none;transition:opacity .22s;
+  }
+  .toast.show{opacity:1;}
+
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
 </style>
 </head>
-<body>
+<body class="tab-log">
   <header>
     <div class="h-title">
       <h1>待ち時間ログ</h1>
-      <span class="sub">🎡 遊園地の行列を記録</span>
+      <span class="sub" id="hSub">🎡 遊園地の行列を記録</span>
     </div>
-    <div class="stats">
+
+    <div class="session logonly">
+      <div class="sfield" style="flex:0 0 44%;">
+        <div class="k">日付</div>
+        <input type="date" id="sesDate">
+      </div>
+      <div class="sfield" style="flex:1;">
+        <div class="k">テーマパーク名</div>
+        <div class="inline">
+          <input type="text" id="sesPark" placeholder="例：東京ディズニーシー" enterkeyhint="done">
+          <button class="pickbtn" id="parkPick" title="登録から選ぶ">▼</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats logonly">
       <div class="chip"><div class="k">記録件数</div><div class="v" id="s-count">0<small>件</small></div></div>
-      <div class="chip"><div class="k">完了</div><div class="v" id="s-done">0<small>件</small></div></div>
       <div class="chip"><div class="k">合計待ち時間</div><div class="v" id="s-total">0<small>分</small></div></div>
+      <button class="csv" id="csvBtn">CSV<br>出力</button>
     </div>
   </header>
 
   <main>
-    <div id="list"></div>
+    <section class="view on" id="view-log"><div id="list"></div></section>
+    <section class="view" id="view-summary"><div id="summary"></div></section>
+    <section class="view" id="view-settings"><div id="settings"></div></section>
   </main>
 
   <div class="addbar">
     <button class="add" id="addBtn"><span class="plus">＋</span>アトラクションを追加</button>
   </div>
 
+  <nav class="tabbar">
+    <button data-tab="log" class="on"><span class="ic">📝</span>記録</button>
+    <button data-tab="summary"><span class="ic">📊</span>サマリー</button>
+    <button data-tab="settings"><span class="ic">⚙️</span>設定</button>
+  </nav>
+
+  <div class="backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet">
+    <div class="grip"></div>
+    <div class="stitle" id="sheetTitle"></div>
+    <div class="sbody" id="sheetBody"></div>
+    <button class="scancel" id="sheetCancel">キャンセル</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
 <script>
 (function(){
   "use strict";
-  var KEY = "machijikan_log_v1";
-  var entries = [];
 
-  /* ---------- storage (guarded: 端末のブラウザでは保存、プレビュー等では非保存で継続) ---------- */
+  var K_LOG="machijikan_log_v2", K_SES="machijikan_session_v2", K_MST="machijikan_master_v1";
+  var entries=[], session={date:"",park:""}, master={parks:[]};
+  var listEl=document.getElementById("list");
+  var sumEl=document.getElementById("summary");
+  var setEl=document.getElementById("settings");
+
+  /* ================= storage ================= */
   function load(){
-    try{ var r = localStorage.getItem(KEY); if(r) entries = JSON.parse(r) || []; }
-    catch(e){ entries = []; }
+    try{ var r=localStorage.getItem(K_LOG); if(r) entries=JSON.parse(r)||[]; }catch(e){ entries=[]; }
+    try{ var s=localStorage.getItem(K_SES); if(s) session=JSON.parse(s)||session; }catch(e){}
+    try{ var m=localStorage.getItem(K_MST); if(m) master=JSON.parse(m)||master; }catch(e){}
+    if(!master || !master.parks) master={parks:[]};
+    // 旧バージョンからの引き継ぎ
+    try{
+      var old=localStorage.getItem("machijikan_log_v1");
+      if(old && entries.length===0){
+        var arr=JSON.parse(old)||[];
+        arr.forEach(function(e){ e.date=e.date||todayStr(); e.park=e.park||""; });
+        entries=arr; saveLog();
+      }
+    }catch(e){}
+    entries.forEach(function(e){ if(e.memo===undefined) e.memo=""; if(e.expect===undefined) e.expect=null; });
   }
-  function save(){
-    try{ localStorage.setItem(KEY, JSON.stringify(entries)); }catch(e){}
-  }
+  function saveLog(){ try{ localStorage.setItem(K_LOG,JSON.stringify(entries)); }catch(e){ toast("保存できませんでした"); } }
+  function saveSes(){ try{ localStorage.setItem(K_SES,JSON.stringify(session)); }catch(e){} }
+  function saveMst(){ try{ localStorage.setItem(K_MST,JSON.stringify(master)); }catch(e){} }
 
-  /* ---------- helpers ---------- */
+  /* ================= helpers ================= */
+  function p2(n){ return (n<10?"0":"")+n; }
   function nowISO(){ return new Date().toISOString(); }
-  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+  function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+  function todayStr(){ var d=new Date(); return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate()); }
+  function isoToHM(iso){ var d=new Date(iso); return p2(d.getHours())+":"+p2(d.getMinutes()); }
+  function hmToISO(base,hm){ var d=base?new Date(base):new Date(),a=hm.split(":"); d.setHours(+a[0],+a[1],0,0); return d.toISOString(); }
+  function diffMin(s,e){ var ms=new Date(e)-new Date(s); if(ms<0) ms+=86400000; return Math.round(ms/60000); }
+  function fmtHM(t,sm){
+    var w=sm?function(x){return "<small>"+x+"</small>";}:function(x){return x;};
+    if(t<60) return t+w("分");
+    return Math.floor(t/60)+w("時間")+(t%60)+w("分");
+  }
+  function jpDate(ymd){
+    var a=(ymd||"").split("-"); if(a.length!==3) return ymd||"日付未設定";
+    var w=["日","月","火","水","木","金","土"][new Date(a[0],a[1]-1,a[2]).getDay()];
+    return a[0]+"年"+parseInt(a[1],10)+"月"+parseInt(a[2],10)+"日（"+w+"）";
+  }
+  function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  function find(id){ for(var i=0;i<entries.length;i++) if(entries[i].id===id) return entries[i]; return null; }
+  function expNum(e){ return (e.expect===null||e.expect===undefined||e.expect==="")?null:Number(e.expect); }
+  function uniq(a){ var s={},o=[]; a.forEach(function(x){ x=(x||"").trim(); if(x&&!s[x]){s[x]=1;o.push(x);} }); return o; }
 
-  function isoToHM(iso){
-    var d = new Date(iso), p = function(n){ return (n<10?"0":"")+n; };
-    return p(d.getHours()) + ":" + p(d.getMinutes());
-  }
-  // HH:MM を、基準ISOの「日付」に合わせて反映（分まで、秒は0）
-  function hmToISO(baseISO, hm){
-    var d = baseISO ? new Date(baseISO) : new Date();
-    var parts = hm.split(":");
-    d.setHours(parseInt(parts[0],10), parseInt(parts[1],10), 0, 0);
-    return d.toISOString();
-  }
-  function diffMin(startISO, endISO){
-    var ms = new Date(endISO) - new Date(startISO);
-    if(ms < 0) ms += 24*3600*1000; // 日付をまたいだ場合の補正
-    return Math.round(ms/60000);
-  }
-  function fmtMin(m){
-    if(m < 60) return m + "分";
-    var h = Math.floor(m/60), mm = m%60;
-    return mm ? (h + "時間" + mm + "分") : (h + "時間");
+  var toastT;
+  function toast(msg){
+    var el=document.getElementById("toast");
+    el.textContent=msg; el.classList.add("show");
+    clearTimeout(toastT); toastT=setTimeout(function(){ el.classList.remove("show"); },2600);
   }
 
-  /* ---------- summary ---------- */
+  function durHTML(e){
+    var ex=expNum(e);
+    if(!e.end){
+      var el=diffMin(e.start,nowISO());
+      var t=(ex===null)?"":'<span class="diff '+(el>ex?"over":"same")+'">想定 '+ex+'分</span>';
+      return '計測中 <b>'+el+'</b>分 経過'+t;
+    }
+    var act=diffMin(e.start,e.end),t2="";
+    if(ex!==null){
+      var d=act-ex, cls=d>0?"over":(d<0?"under":"same");
+      var tx=d>0?("想定 +"+d+"分"):(d<0?("想定 "+d+"分"):"想定どおり");
+      t2='<span class="diff '+cls+'">'+tx+'</span>';
+    }
+    return '待ち時間 <b>'+act+'</b>分'+t2;
+  }
+
+  /* ================= sheet picker ================= */
+  var sheetVals=[], sheetCb=null;
+  function openSheet(title, groups, cb){
+    sheetVals=[]; sheetCb=cb;
+    var html="", n=0, any=false;
+    groups.forEach(function(g){
+      if(!g.items || !g.items.length) return;
+      any=true;
+      html+='<div class="sgroup">'+esc(g.label)+'</div>';
+      g.items.forEach(function(v){
+        sheetVals.push(v);
+        html+='<button class="sitem" data-idx="'+(n++)+'">'+esc(v)+'</button>';
+      });
+    });
+    if(!any) html='<div class="snone">選べる候補がまだありません。<br>設定タブでテーマパークとアトラクションを登録すると、ここから選べます。</div>';
+    document.getElementById("sheetTitle").textContent=title;
+    document.getElementById("sheetBody").innerHTML=html;
+    document.getElementById("sheet").classList.add("show");
+    document.getElementById("backdrop").classList.add("show");
+  }
+  function closeSheet(){
+    document.getElementById("sheet").classList.remove("show");
+    document.getElementById("backdrop").classList.remove("show");
+    sheetCb=null;
+  }
+  document.getElementById("sheetBody").addEventListener("click",function(ev){
+    var t=ev.target.closest(".sitem"); if(!t) return;
+    var v=sheetVals[+t.getAttribute("data-idx")], cb=sheetCb;
+    closeSheet(); if(cb) cb(v);
+  });
+  document.getElementById("sheetCancel").addEventListener("click",closeSheet);
+  document.getElementById("backdrop").addEventListener("click",closeSheet);
+
+  function parkOptions(){
+    return [
+      { label:"登録済みのテーマパーク", items:uniq(master.parks.map(function(p){return p.name;})) },
+      { label:"最近の入力", items:uniq(entries.map(function(e){return e.park;}))
+          .filter(function(n){ return master.parks.every(function(p){ return p.name!==n; }); }) }
+    ];
+  }
+  function attractionOptions(parkName){
+    var reg=[], mp=null;
+    master.parks.forEach(function(p){ if(p.name===parkName) mp=p; });
+    if(mp){ reg=uniq(mp.attractions||[]); }
+    else{
+      // パーク未設定・未登録なら全登録分を出す
+      master.parks.forEach(function(p){ reg=reg.concat(p.attractions||[]); });
+      reg=uniq(reg);
+    }
+    var recent=uniq(entries.filter(function(e){ return !parkName || e.park===parkName; })
+      .sort(function(a,b){ return new Date(b.start)-new Date(a.start); })
+      .map(function(e){ return e.name; })).filter(function(n){ return reg.indexOf(n)<0; }).slice(0,12);
+    return [
+      { label: mp ? ("登録済み（"+mp.name+"）") : "登録済み", items:reg },
+      { label:"最近の入力", items:recent }
+    ];
+  }
+
+  /* ================= log view ================= */
   function renderStats(){
-    var total = 0, done = 0;
-    entries.forEach(function(e){
-      if(e.end){ done++; total += diffMin(e.start, e.end); }
-    });
-    document.getElementById("s-count").innerHTML = entries.length + '<small>件</small>';
-    document.getElementById("s-done").innerHTML  = done + '<small>件</small>';
-    if(total < 60){
-      document.getElementById("s-total").innerHTML = total + '<small>分</small>';
-    }else{
-      var h = Math.floor(total/60), mm = total%60;
-      document.getElementById("s-total").innerHTML = h + '<small>時間</small>' + mm + '<small>分</small>';
-    }
+    var total=0;
+    entries.forEach(function(e){ if(e.end) total+=diffMin(e.start,e.end); });
+    document.getElementById("s-count").innerHTML=entries.length+"<small>件</small>";
+    document.getElementById("s-total").innerHTML=fmtHM(total,true);
+    document.getElementById("csvBtn").disabled=entries.length===0;
   }
 
-  /* ---------- render list ---------- */
-  function render(){
-    var list = document.getElementById("list");
-    if(entries.length === 0){
-      list.innerHTML = '<div class="empty"><div class="big">🎢</div>' +
-        'まだ記録がありません。<br>下の「追加」を押すと、<br>今から並ぶアトラクションを登録できます。</div>';
-      renderStats();
-      return;
+  function renderLog(){
+    if(entries.length===0){
+      listEl.innerHTML='<div class="empty"><div class="big">🎢</div>'+
+        'まだ記録がありません。<br>上で日付とテーマパーク名を入れてから、<br>下の「追加」を押してください。</div>';
+      renderStats(); return;
     }
-    // 新しい順（追加したものが上）
-    var order = entries.slice().reverse();
-    var html = "";
-    order.forEach(function(e){
-      var active = !e.end;
-      var badge = active
-        ? '<span class="badge live">計測中</span>'
-        : '<span class="badge done">完了</span>';
-
-      var startField =
-        '<div class="tblock"><div class="lbl">並び始め</div>' +
-        '<input type="time" value="'+isoToHM(e.start)+'" ' +
-        'onchange="APP.editTime(\''+e.id+'\',\'start\',this.value)"></div>';
-
-      var endField;
-      if(active){
-        endField =
-          '<div class="tblock"><div class="lbl">並び終え</div>' +
-          '<button class="end-btn" onclick="APP.finish(\''+e.id+'\')">終了</button></div>';
-      }else{
-        endField =
-          '<div class="tblock"><div class="lbl">並び終え</div><div class="end-wrap">' +
-          '<input type="time" value="'+isoToHM(e.end)+'" ' +
-          'onchange="APP.editTime(\''+e.id+'\',\'end\',this.value)">' +
-          '<button class="reset-end" title="計測中に戻す" onclick="APP.reopen(\''+e.id+'\')">↺</button>' +
-          '</div></div>';
-      }
-
-      var dur;
-      if(active){
-        var el = diffMin(e.start, nowISO());
-        dur = '<div class="dur live">計測中 <b>'+el+'</b>分 経過</div>';
-      }else{
-        dur = '<div class="dur">待ち時間 <b>'+diffMin(e.start,e.end)+'</b>分</div>';
-      }
-
-      html +=
-        '<div class="card'+(active?' active':'')+'">' +
-          '<div class="row1">' +
-            '<input class="name" value="'+escapeAttr(e.name)+'" placeholder="アトラクション名" ' +
-              'onchange="APP.editName(\''+e.id+'\',this.value)">' +
-            badge +
-            '<button class="del" title="削除" onclick="APP.remove(\''+e.id+'\')">🗑</button>' +
-          '</div>' +
-          '<div class="times">' + startField +
-            '<div class="arrow">→</div>' + endField +
-          '</div>' + dur +
-        '</div>';
+    var groups={},order=[];
+    entries.forEach(function(e){
+      var k=(e.date||"")+"\u0000"+(e.park||"");
+      if(!groups[k]){ groups[k]={date:e.date||"",park:e.park||"",items:[]}; order.push(k); }
+      groups[k].items.push(e);
     });
-    list.innerHTML = html;
+    order.sort(function(a,b){
+      var ga=groups[a],gb=groups[b];
+      if(ga.date!==gb.date) return ga.date<gb.date?1:-1;
+      var la=Math.max.apply(null,ga.items.map(function(x){return +new Date(x.start);}));
+      var lb=Math.max.apply(null,gb.items.map(function(x){return +new Date(x.start);}));
+      return lb-la;
+    });
+
+    var html="";
+    order.forEach(function(k){
+      var g=groups[k];
+      var items=g.items.slice().sort(function(a,b){ return new Date(b.start)-new Date(a.start); });
+      var sub=0; items.forEach(function(e){ if(e.end) sub+=diffMin(e.start,e.end); });
+
+      html+='<div class="group"><div class="ghead"><div class="gmeta">'+
+        '<div class="gdate">'+esc(jpDate(g.date))+'</div>'+
+        '<input class="gpark" data-act="gpark" data-date="'+esc(g.date)+'" data-park="'+esc(g.park)+'" '+
+          'value="'+esc(g.park)+'" placeholder="テーマパーク名を入力">'+
+        '</div><div class="gsum">'+items.length+'件 / '+fmtHM(sub,false)+'</div></div>';
+
+      items.forEach(function(e){
+        var active=!e.end;
+        html+='<div class="card'+(active?' active':'')+'">'+
+          '<div class="row1">'+
+            '<input class="name" data-act="name" data-id="'+e.id+'" value="'+esc(e.name)+'" placeholder="アトラクション名">'+
+            '<button class="namepick" data-act="namepick" data-id="'+e.id+'" title="一覧から選ぶ">▼</button>'+
+            (active?'<span class="badge live">計測中</span>':'<span class="badge done">完了</span>')+
+            '<button class="del" data-act="del" data-id="'+e.id+'" title="削除">🗑</button>'+
+          '</div>'+
+          '<div class="times">'+
+            '<div class="tblock"><div class="lbl">並び始め</div>'+
+              '<input type="time" data-act="start" data-id="'+e.id+'" value="'+isoToHM(e.start)+'"></div>'+
+            '<div class="arrow">→</div>'+
+            '<div class="tblock"><div class="lbl">並び終え</div>'+
+              (active
+                ? '<button class="end-btn" data-act="finish" data-id="'+e.id+'">終了</button>'
+                : '<div class="end-wrap"><input type="time" data-act="end" data-id="'+e.id+'" value="'+isoToHM(e.end)+'">'+
+                  '<button class="reset-end" data-act="reopen" data-id="'+e.id+'" title="計測中に戻す">↺</button></div>')+
+            '</div>'+
+          '</div>'+
+          '<div class="expect"><div class="lbl">想定の待ち時間<small>アプリ等の案内表示</small></div>'+
+            '<div class="inwrap"><input type="number" inputmode="numeric" pattern="[0-9]*" min="0" max="600" step="5" '+
+            'data-act="expect" data-id="'+e.id+'" placeholder="－" value="'+(expNum(e)===null?"":expNum(e))+'">'+
+            '<span class="unit">分</span></div></div>'+
+          '<div class="memo"><input type="text" data-act="memo" data-id="'+e.id+'" value="'+esc(e.memo)+'" '+
+            'placeholder="メモ（DPA利用、同行者、天候など）" enterkeyhint="done"></div>'+
+          '<div class="dur'+(active?' live':'')+'" id="dur-'+e.id+'">'+durHTML(e)+'</div>'+
+        '</div>';
+      });
+      html+='</div>';
+    });
+    listEl.innerHTML=html;
     renderStats();
   }
-  function escapeAttr(s){
-    return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
 
-  /* ---------- actions ---------- */
-  var APP = {
-    add:function(){
-      entries.push({ id:uid(), name:"", start:nowISO(), end:null });
-      save(); render();
-      // 追加したカードの名前欄にフォーカス（先頭に表示される）
-      setTimeout(function(){
-        var n = document.querySelector("#list .card .name");
-        if(n){ n.focus(); }
-      }, 30);
-    },
-    finish:function(id){
-      var e = find(id); if(!e) return;
-      e.end = nowISO(); save(); render();
-    },
-    reopen:function(id){
-      var e = find(id); if(!e) return;
-      e.end = null; save(); render();
-    },
-    editName:function(id,val){
-      var e = find(id); if(!e) return;
-      e.name = val; save(); renderStats();
-    },
-    editTime:function(id,field,hm){
-      var e = find(id); if(!e || !hm) return;
-      if(field === "start"){ e.start = hmToISO(e.start, hm); }
-      else { e.end = hmToISO(e.end || e.start, hm); }
-      save(); render();
-    },
-    remove:function(id){
-      var e = find(id);
-      var label = (e && e.name) ? "「"+e.name+"」" : "この記録";
-      if(confirm(label+"を削除しますか？")){
-        entries = entries.filter(function(x){ return x.id !== id; });
-        save(); render();
+  listEl.addEventListener("click",function(ev){
+    var t=ev.target.closest("[data-act]"); if(!t) return;
+    var act=t.getAttribute("data-act"), id=t.getAttribute("data-id"), e;
+    if(act==="finish"){ e=find(id); if(e){ e.end=nowISO(); saveLog(); renderLog(); } }
+    else if(act==="reopen"){ e=find(id); if(e){ e.end=null; saveLog(); renderLog(); } }
+    else if(act==="del"){
+      e=find(id); if(!e) return;
+      var lb=e.name?("「"+e.name+"」"):"この記録";
+      if(confirm(lb+"を削除しますか？")){
+        entries=entries.filter(function(x){ return x.id!==id; });
+        saveLog(); renderLog();
       }
     }
-  };
-  function find(id){
-    for(var i=0;i<entries.length;i++){ if(entries[i].id===id) return entries[i]; }
-    return null;
+    else if(act==="namepick"){
+      e=find(id); if(!e) return;
+      openSheet("アトラクションを選ぶ", attractionOptions(e.park), function(v){
+        e.name=v; saveLog(); renderLog();
+      });
+    }
+  });
+
+  listEl.addEventListener("change",function(ev){
+    var t=ev.target.closest("[data-act]"); if(!t) return;
+    var act=t.getAttribute("data-act"), id=t.getAttribute("data-id"), e;
+    if(act==="name"){ e=find(id); if(e){ e.name=t.value; saveLog(); } }
+    else if(act==="memo"){ e=find(id); if(e){ e.memo=t.value; saveLog(); } }
+    else if(act==="start"){ e=find(id); if(e&&t.value){ e.start=hmToISO(e.start,t.value); saveLog(); renderLog(); } }
+    else if(act==="end"){ e=find(id); if(e&&t.value){ e.end=hmToISO(e.end||e.start,t.value); saveLog(); renderLog(); } }
+    else if(act==="expect"){
+      e=find(id); if(!e) return;
+      var v=t.value.trim();
+      if(v===""){ e.expect=null; }
+      else{
+        var n=Math.max(0,Math.round(Number(v)));
+        if(isNaN(n)){ e.expect=null; t.value=""; } else { e.expect=n; t.value=n; }
+      }
+      saveLog();
+      var d=document.getElementById("dur-"+id); if(d) d.innerHTML=durHTML(e);
+    }
+    else if(act==="gpark"){
+      var dt=t.getAttribute("data-date")||"", op=t.getAttribute("data-park")||"", np=t.value;
+      if(np===op) return;
+      entries.forEach(function(x){ if((x.date||"")===dt&&(x.park||"")===op) x.park=np; });
+      if(session.date===dt&&session.park===op){
+        session.park=np; document.getElementById("sesPark").value=np; saveSes();
+      }
+      saveLog(); renderLog();
+    }
+  });
+
+  /* ================= session ================= */
+  var dateEl=document.getElementById("sesDate"), parkEl=document.getElementById("sesPark");
+  dateEl.addEventListener("change",function(){ session.date=dateEl.value; saveSes(); });
+  parkEl.addEventListener("change",function(){ session.park=parkEl.value; saveSes(); });
+  parkEl.addEventListener("blur",function(){ session.park=parkEl.value; saveSes(); });
+  document.getElementById("parkPick").addEventListener("click",function(){
+    openSheet("テーマパークを選ぶ", parkOptions(), function(v){
+      parkEl.value=v; session.park=v; saveSes();
+    });
+  });
+
+  document.getElementById("addBtn").addEventListener("click",function(){
+    session.date=dateEl.value||todayStr();
+    session.park=parkEl.value;
+    dateEl.value=session.date; saveSes();
+    entries.push({ id:uid(), name:"", date:session.date, park:session.park,
+                   start:nowISO(), end:null, expect:null, memo:"" });
+    saveLog(); renderLog();
+    setTimeout(function(){ var n=listEl.querySelector(".card .name"); if(n) n.focus(); },30);
+  });
+
+  /* ================= summary ================= */
+  function renderSummary(){
+    var done=entries.filter(function(e){ return e.end; });
+    if(done.length===0){
+      sumEl.innerHTML='<div class="empty"><div class="big">📊</div>'+
+        '完了した記録がまだありません。<br>「終了」を押した記録が集計されます。</div>';
+      return;
+    }
+    var mins=done.map(function(e){ return diffMin(e.start,e.end); });
+    var total=mins.reduce(function(a,b){return a+b;},0);
+    var avg=Math.round(total/done.length);
+    var maxV=Math.max.apply(null,mins), minV=Math.min.apply(null,mins);
+    var maxE=done[mins.indexOf(maxV)];
+
+    var withEx=done.filter(function(e){ return expNum(e)!==null; });
+    var exHTML="";
+    if(withEx.length){
+      var diffs=withEx.map(function(e){ return diffMin(e.start,e.end)-expNum(e); });
+      var avgD=Math.round(diffs.reduce(function(a,b){return a+b;},0)/diffs.length);
+      var over=diffs.filter(function(d){return d>0;}).length;
+      var under=diffs.filter(function(d){return d<0;}).length;
+      var sign=avgD>0?"+":"";
+      exHTML='<div class="sec"><h2>案内表示との比較</h2>'+
+        '<div class="kv"><span class="kk">比較できる記録</span><span class="vv">'+withEx.length+' 件</span></div>'+
+        '<div class="kv"><span class="kk">実測 − 想定の平均</span><span class="vv" style="color:'+(avgD>0?"#C13F27":"#0B8C6C")+'">'+sign+avgD+' 分</span></div>'+
+        '<div class="kv"><span class="kk">案内より長く待った</span><span class="vv">'+over+' 件</span></div>'+
+        '<div class="kv"><span class="kk">案内より早く乗れた</span><span class="vv">'+under+' 件</span></div>'+
+        '<div class="note">プラスは案内表示より長く待ったことを表します。</div></div>';
+    }
+
+    // パーク・日付別
+    var byG={},gk=[];
+    done.forEach(function(e){
+      var k=(e.date||"")+"\u0000"+(e.park||"");
+      if(!byG[k]){ byG[k]={date:e.date,park:e.park,n:0,sum:0}; gk.push(k); }
+      byG[k].n++; byG[k].sum+=diffMin(e.start,e.end);
+    });
+    gk.sort(function(a,b){ return byG[b].sum-byG[a].sum; });
+    var gHTML=gk.map(function(k){
+      var g=byG[k];
+      return '<div class="rank"><div class="no">·</div><div class="rname">'+esc(g.park||"（パーク未設定）")+
+        '<em>'+esc(jpDate(g.date))+' ／ '+g.n+'件・平均'+Math.round(g.sum/g.n)+'分</em></div>'+
+        '<div class="rmin">'+g.sum+'<span style="font-size:11px">分</span></div></div>';
+    }).join("");
+
+    // アトラクション別ランキング
+    var rank=done.slice().sort(function(a,b){ return diffMin(b.start,b.end)-diffMin(a.start,a.end); }).slice(0,8);
+    var rHTML=rank.map(function(e,i){
+      var m=diffMin(e.start,e.end);
+      return '<div class="rank"><div class="no">'+(i+1)+'</div>'+
+        '<div class="rname">'+esc(e.name||"（名称未入力）")+
+        '<em>'+esc(e.park||"パーク未設定")+' ／ '+isoToHM(e.start)+'〜'+isoToHM(e.end)+'</em>'+
+        '<div class="bar"><i style="width:'+Math.round(m/maxV*100)+'%"></i></div></div>'+
+        '<div class="rmin">'+m+'<span style="font-size:11px">分</span></div></div>';
+    }).join("");
+
+    sumEl.innerHTML=
+      '<div class="sec"><h2>全体</h2><div class="kpis">'+
+        '<div class="kpi"><div class="k">完了</div><div class="v">'+done.length+'<small>件</small></div></div>'+
+        '<div class="kpi"><div class="k">合計</div><div class="v">'+fmtHM(total,true)+'</div></div>'+
+        '<div class="kpi"><div class="k">平均</div><div class="v">'+avg+'<small>分</small></div></div>'+
+      '</div>'+
+      '<div class="kv" style="margin-top:12px"><span class="kk">最も待った</span><span class="vv">'+
+        esc(maxE.name||"（名称未入力）")+' ／ '+maxV+'分</span></div>'+
+      '<div class="kv"><span class="kk">最も短かった</span><span class="vv">'+minV+' 分</span></div></div>'+
+      exHTML+
+      '<div class="sec"><h2>日付・パーク別</h2>'+gHTML+'</div>'+
+      '<div class="sec"><h2>待ち時間ランキング</h2>'+rHTML+'</div>';
   }
-  window.APP = APP;
 
-  document.getElementById("addBtn").addEventListener("click", APP.add);
+  /* ================= settings ================= */
+  function renderSettings(){
+    var pHTML=master.parks.map(function(p){
+      var atts=(p.attractions||[]);
+      return '<div class="pcard">'+
+        '<div class="prow"><input type="text" data-act="mpname" data-pid="'+p.id+'" value="'+esc(p.name)+'" placeholder="テーマパーク名">'+
+        '<button class="del" data-act="mpdel" data-pid="'+p.id+'" title="削除">🗑</button></div>'+
+        '<div class="plbl">アトラクション（1行に1つ）</div>'+
+        '<textarea data-act="mpatt" data-pid="'+p.id+'" placeholder="スプラッシュ・マウンテン&#10;ビッグサンダー・マウンテン">'+esc(atts.join("\n"))+'</textarea>'+
+        '<div class="pcount">'+atts.length+'件 登録</div></div>';
+    }).join("");
+    if(!pHTML) pHTML='<div class="empty" style="padding:24px 10px">まだ登録がありません。<br>下のボタンから追加してください。</div>';
 
-  // 計測中の経過分を自動更新（30秒ごと）
+    setEl.innerHTML=
+      '<div class="sec"><h2>テーマパークとアトラクション</h2>'+pHTML+
+        '<button class="btn primary" data-act="mpadd">＋ テーマパークを追加</button>'+
+        '<div class="note">ここに登録すると、記録画面の「▼」から選べるようになります。'+
+        '登録していないアトラクションも、これまでどおりその場で入力できます。</div></div>'+
+
+      '<div class="sec"><h2>データのバックアップ</h2>'+
+        '<button class="btn primary" data-act="expjson">バックアップを保存（JSON）</button>'+
+        '<button class="btn ghost" data-act="impjson">バックアップから復元</button>'+
+        '<input type="file" id="impFile" accept=".json,application/json" style="display:none">'+
+        '<div class="note">記録はこの端末のブラウザ内にのみ保存されます。'+
+        'ブラウザのデータ削除や空き容量不足で消えることがあるため、'+
+        '一日の終わりにバックアップを保存しておくと安全です。復元すると現在のデータは置き換わります。</div></div>'+
+
+      '<div class="sec"><h2>データの削除</h2>'+
+        '<button class="btn danger" data-act="clearlog">記録をすべて削除</button>'+
+        '<div class="note">テーマパークの登録内容は残ります。この操作は取り消せません。</div></div>';
+
+    // textarea の高さを内容に合わせる
+    Array.prototype.forEach.call(setEl.querySelectorAll("textarea"),autoGrow);
+  }
+  function autoGrow(el){ el.style.height="auto"; el.style.height=Math.max(76,el.scrollHeight)+"px"; }
+  function findPark(pid){ for(var i=0;i<master.parks.length;i++) if(master.parks[i].id===pid) return master.parks[i]; return null; }
+
+  setEl.addEventListener("input",function(ev){
+    if(ev.target.tagName==="TEXTAREA") autoGrow(ev.target);
+  });
+
+  setEl.addEventListener("click",function(ev){
+    var t=ev.target.closest("[data-act]"); if(!t) return;
+    var act=t.getAttribute("data-act"), pid=t.getAttribute("data-pid"), p;
+    if(act==="mpadd"){
+      master.parks.push({ id:uid(), name:"", attractions:[] });
+      saveMst(); renderSettings();
+      var ins=setEl.querySelectorAll('input[data-act="mpname"]');
+      if(ins.length){ ins[ins.length-1].focus(); }
+    }
+    else if(act==="mpdel"){
+      p=findPark(pid); if(!p) return;
+      if(confirm((p.name?("「"+p.name+"」"):"この登録")+"を削除しますか？（記録には影響しません）")){
+        master.parks=master.parks.filter(function(x){ return x.id!==pid; });
+        saveMst(); renderSettings();
+      }
+    }
+    else if(act==="expjson"){ exportJSON(); }
+    else if(act==="impjson"){ document.getElementById("impFile").click(); }
+    else if(act==="clearlog"){
+      if(!entries.length){ toast("記録がありません"); return; }
+      if(confirm("記録"+entries.length+"件をすべて削除します。よろしいですか？")){
+        if(confirm("この操作は取り消せません。本当に削除しますか？")){
+          entries=[]; saveLog(); renderLog(); renderSummary(); toast("記録を削除しました");
+        }
+      }
+    }
+  });
+
+  setEl.addEventListener("change",function(ev){
+    var t=ev.target.closest("[data-act]"); if(!t) return;
+    var act=t.getAttribute("data-act"), pid=t.getAttribute("data-pid"), p;
+    if(act==="mpname"){
+      p=findPark(pid); if(p){ p.name=t.value; saveMst(); renderSettings(); }
+    }
+    else if(act==="mpatt"){
+      p=findPark(pid); if(p){
+        p.attractions=uniq(t.value.split("\n"));
+        saveMst(); renderSettings();
+      }
+    }
+    else if(t.id==="impFile"){ /* handled below */ }
+  });
+
+  document.getElementById("settings").addEventListener("change",function(ev){
+    if(ev.target.id!=="impFile") return;
+    var f=ev.target.files && ev.target.files[0]; if(!f) return;
+    var r=new FileReader();
+    r.onload=function(){
+      try{
+        var d=JSON.parse(r.result);
+        if(!d || !Array.isArray(d.entries)) throw new Error("形式が違います");
+        if(!confirm("記録"+d.entries.length+"件を復元します。現在のデータは置き換わります。よろしいですか？")) return;
+        entries=d.entries;
+        entries.forEach(function(e){ if(e.memo===undefined) e.memo=""; if(e.expect===undefined) e.expect=null; });
+        if(d.master && Array.isArray(d.master.parks)) master=d.master;
+        saveLog(); saveMst(); renderLog(); renderSummary(); renderSettings();
+        toast("復元しました（"+entries.length+"件）");
+      }catch(err){
+        toast("読み込めませんでした");
+      }
+    };
+    r.readAsText(f);
+    ev.target.value="";
+  });
+
+  /* ================= export ================= */
+  function csvCell(v){ return '"'+String(v==null?"":v).replace(/"/g,'""')+'"'; }
+  function buildCSV(){
+    var rows=[["日付","テーマパーク","アトラクション","並び始め","並び終え",
+               "実測待ち時間(分)","想定待ち時間(分)","差(分)","メモ"]];
+    entries.slice().sort(function(a,b){
+      if((a.date||"")!==(b.date||"")) return (a.date||"")<(b.date||"")?-1:1;
+      return new Date(a.start)-new Date(b.start);
+    }).forEach(function(e){
+      var ex=expNum(e), act=e.end?diffMin(e.start,e.end):null;
+      rows.push([e.date||"",e.park||"",e.name||"",isoToHM(e.start),
+        e.end?isoToHM(e.end):"", act===null?"":act, ex===null?"":ex,
+        (act===null||ex===null)?"":(act-ex), e.memo||""]);
+    });
+    return "\uFEFF"+rows.map(function(r){ return r.map(csvCell).join(","); }).join("\r\n")+"\r\n";
+  }
+  function stamp(){ var d=new Date(); return ""+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+"_"+p2(d.getHours())+p2(d.getMinutes()); }
+
+  function saveBlob(blob,fname,okMsg){
+    var file=null;
+    try{ file=new File([blob],fname,{type:blob.type}); }catch(e){}
+    if(file && navigator.canShare && navigator.canShare({files:[file]})){
+      navigator.share({files:[file],title:"待ち時間ログ"})
+        .then(function(){ toast(okMsg); })
+        .catch(function(){ downloadBlob(blob,fname,okMsg); });
+    }else{ downloadBlob(blob,fname,okMsg); }
+  }
+  function downloadBlob(blob,fname,okMsg){
+    try{
+      var url=URL.createObjectURL(blob), a=document.createElement("a");
+      a.href=url; a.download=fname;
+      document.body.appendChild(a); a.click();
+      setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(url); },1500);
+      toast(okMsg);
+    }catch(e){ toast("保存できませんでした"); }
+  }
+
+  document.getElementById("csvBtn").addEventListener("click",function(){
+    if(!entries.length){ toast("記録がありません"); return; }
+    saveBlob(new Blob([buildCSV()],{type:"text/csv;charset=utf-8"}),
+      "wait_log_"+stamp()+".csv","CSVを書き出しました");
+  });
+  function exportJSON(){
+    var data={ app:"machijikan-log", version:2, exportedAt:nowISO(), entries:entries, master:master, session:session };
+    saveBlob(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),
+      "wait_log_backup_"+stamp()+".json","バックアップを書き出しました");
+  }
+
+  /* ================= tabs ================= */
+  document.querySelector(".tabbar").addEventListener("click",function(ev){
+    var t=ev.target.closest("[data-tab]"); if(!t) return;
+    var tab=t.getAttribute("data-tab");
+    Array.prototype.forEach.call(document.querySelectorAll(".tabbar button"),function(b){
+      b.classList.toggle("on", b===t);
+    });
+    document.getElementById("view-log").classList.toggle("on",tab==="log");
+    document.getElementById("view-summary").classList.toggle("on",tab==="summary");
+    document.getElementById("view-settings").classList.toggle("on",tab==="settings");
+    document.body.className="tab-"+tab;
+    document.getElementById("hSub").textContent =
+      tab==="log" ? "🎡 遊園地の行列を記録" : (tab==="summary" ? "📊 記録の集計" : "⚙️ 登録とバックアップ");
+    if(tab==="summary") renderSummary();
+    if(tab==="settings") renderSettings();
+    window.scrollTo(0,0);
+  });
+
+  /* ================= live timer ================= */
   setInterval(function(){
-    var hasActive = entries.some(function(e){ return !e.end; });
-    if(hasActive) render();
-  }, 30000);
+    entries.forEach(function(e){
+      if(e.end) return;
+      var el=document.getElementById("dur-"+e.id);
+      if(el) el.innerHTML=durHTML(e);
+    });
+  },30000);
 
+  /* ================= init ================= */
   load();
-  render();
+  dateEl.value=session.date||todayStr();
+  parkEl.value=session.park||"";
+  session.date=dateEl.value;
+  renderLog();
 })();
 </script>
 </body>
